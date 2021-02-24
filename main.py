@@ -6,10 +6,10 @@ import requests
 import json
 
 working_dir: str = "working"
-files_dir: str = os.path.join(working_dir, "bills")
+files_dir: str = os.path.join(working_dir, "data")
 data_dir: str = os.path.join(working_dir, "json")
 
-congress_api_base: str = "https://www.govinfo.gov/bulkdata/json/BILLS/"
+congress_api_base: str = "https://www.govinfo.gov/bulkdata/json/"
 
 
 def download_response(url: str) -> dict:
@@ -64,9 +64,13 @@ if __name__ == "__main__":
         if url == congress_api_base:
             write_json(data=data, filename=os.path.join(data_dir, "index.json"))
         else:
-            data = download_response(url=url)
             folder_path: str = os.path.join(data_dir, url[len(congress_api_base):])
             json_path: str = f"{folder_path}/index.json"
+
+            if os.path.exists(json_path):
+                data = json.load(open(json_path, mode="r"))
+            else:
+                data = download_response(url=url)
 
             if not os.path.exists(folder_path):
                 os.mkdir(folder_path)
