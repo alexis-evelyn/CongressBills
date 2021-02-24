@@ -1,5 +1,6 @@
 #!/bin/python3
 import os
+from typing import List
 
 import requests
 import json
@@ -8,7 +9,7 @@ working_dir: str = "working"
 files_dir: str = os.path.join(working_dir, "bills")
 data_dir: str = os.path.join(working_dir, "json")
 
-congress_api_base: str = "https://www.govinfo.gov/bulkdata/json/BILLS"
+congress_api_base: str = "https://www.govinfo.gov/bulkdata/json/BILLS/"
 
 
 def download_response(url: str) -> dict:
@@ -22,10 +23,27 @@ def download_response(url: str) -> dict:
     return response_dict
 
 
+def download_file(url: str) -> bytes:
+    headers: dict = {
+        "Accept": "*"
+    }
+
+    response: requests.Response = requests.get(url=url, headers=headers)
+    response_bytes: bytes = response.content
+
+    return response_bytes
+
+
 def write_json(data: dict, filename: str):
     data_str: str = json.dumps(data)
     with open(file=filename, mode="w+") as f:
         f.writelines(data_str)
+        f.close()
+
+
+def write_file(body: bytes, filename: str):
+    with open(file=filename, mode="w+b") as f:
+        f.write(body)
         f.close()
 
 
@@ -40,17 +58,44 @@ if __name__ == "__main__":
         os.mkdir(data_dir)
 
     data = download_response(url=congress_api_base)
-    write_json(data=data, filename=os.path.join(data_dir, "root.json"))
+    urls: List[str] = [congress_api_base]
 
-    # TODO: Figure Out How To Spider All URLs
-    for file in data["files"]:
-        if file['folder']:
-            # TODO: Get Current Directory From API URL
-            # https://www.govinfo.gov/bulkdata/json/BILLS/117/1/sconres/BILLS-117sconres1es.xml -> /117/1/sconres/BILLS-117sconres1es.xml
-            bill_dir: str = os.path.join(files_dir, file['justFileName'])
-            if not os.path.exists(bill_dir):
-                os.mkdir(bill_dir)
-
-            print(f"Folder: {file['justFileName']} - {file['link']}")
+    for url in urls:
+        if url == congress_api_base:
+            write_json(data=data, filename=os.path.join(data_dir, "index.json"))
         else:
-            print(f"File: {file['justFileName']} - {file['link']}")
+            data = download_response(url=url)
+            folder_path: str = os.path.join(data_dir, url[len(congress_api_base):])
+            json_path: str = f"{folder_path}/index.json"
+
+            if not os.path.exists(folder_path):
+                os.mkdir(folder_path)
+
+            write_json(data=data, filename=json_path)
+
+        for file in data["files"]:
+            filename: str = os.path.join(files_dir, url[len(congress_api_base):], file['justFileName'])
+
+            if file['folder']:
+                if not os.path.exists(filename):
+                    print(f"Making Directory: {filename} - URL: {url}")
+                    os.mkdir(filename)
+                else:
+                    print(f"Already Made Directory: {filename}")
+
+                if file['link'] not in urls:
+                    urls.append(file['link'])
+
+                # print(f"Folder: {filename} - {file['link']}")
+            else:
+                # print(f"File: {filename} - {file['link']}")
+
+                if not os.path.exists(filename):
+                    print(f'Downloading File "{filename}" From "{file["link"]}"')
+                    contents: bytes = download_file(url=file['link'])
+                    write_file(body=contents, filename=filename)
+                else:
+                    print(f'Skipping File "{filename}" Due To Already Existing')
+
+        # Note: NEVER Modify List Will Looping Through It!!!
+        # urls.remove(url)
