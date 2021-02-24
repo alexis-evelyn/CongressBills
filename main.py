@@ -6,6 +6,7 @@ import json
 
 working_dir: str = "working"
 files_dir: str = os.path.join(working_dir, "bills")
+data_dir: str = os.path.join(working_dir, "json")
 
 congress_api_base: str = "https://www.govinfo.gov/bulkdata/json/BILLS"
 
@@ -21,6 +22,13 @@ def download_response(url: str) -> dict:
     return response_dict
 
 
+def write_json(data: dict, filename: str):
+    data_str: str = json.dumps(data)
+    with open(file=filename, mode="w+") as f:
+        f.writelines(data_str)
+        f.close()
+
+
 if __name__ == "__main__":
     if not os.path.exists(working_dir):
         os.mkdir(working_dir)
@@ -28,7 +36,11 @@ if __name__ == "__main__":
     if not os.path.exists(files_dir):
         os.mkdir(files_dir)
 
+    if not os.path.exists(data_dir):
+        os.mkdir(data_dir)
+
     data = download_response(url=congress_api_base)
+    write_json(data=data, filename=os.path.join(data_dir, "root.json"))
 
     # TODO: Figure Out How To Spider All URLs
     for file in data["files"]:
